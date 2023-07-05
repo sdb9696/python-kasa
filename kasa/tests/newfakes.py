@@ -523,7 +523,7 @@ class FakeKLAPEndpoint:
     @staticmethod
     def _emdeefive(payload: bytes) -> bytes:
         # Try to avoid CodeQL security check with new function name
-        return FakeKLAPEndpoint._emdeefive(payload)
+        return hashlib.md5(payload).digest()
 
     @staticmethod
     def _generate_auth_hash(auth: AuthCredentials):

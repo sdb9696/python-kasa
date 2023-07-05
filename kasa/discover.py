@@ -262,11 +262,13 @@ class Discover:
         :return: Object for querying/controlling found device.
         """
         # Iterate over the enabled protocols and return a device for that protocol
+        proto: TPLinkProtocol
         for proto_class in TPLinkProtocolConfig.enabled_protocols():
             if issubclass(proto_class, TPLinkAuthProtocol):
                 auth_proto: TPLinkAuthProtocol = proto_class(
                     host, auth_credentials=auth_credentials
                 )
+                proto = cast(TPLinkProtocol, auth_proto)
             else:
                 proto = proto_class(host)
 
@@ -280,7 +282,7 @@ class Discover:
 
                 return dev
             elif (
-                issubclass(proto_class, TPLinkAuthProtocol)
+                issubclass(proto.__class__, TPLinkAuthProtocol)
                 and auth_proto.authentication_failed
             ):
                 found_devs = await Discover.discover(targetip=host, protocol=proto)
