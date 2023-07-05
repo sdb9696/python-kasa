@@ -1,19 +1,18 @@
 import errno
+import hashlib
 import json
 import logging
+import secrets
 import struct
 import sys
-import secrets
 
 import pytest
 
 from kasa import SmartDevice
-from ..exceptions import SmartDeviceException
-from ..klapprotocol import TPLinkKlap, KlapEncryptionSession
-
 
 from ..auth import AuthCredentials
-import hashlib
+from ..exceptions import SmartDeviceException
+from ..klapprotocol import KlapEncryptionSession, TPLinkKlap
 
 
 def get_klap_proto_with_fake_endpoint(mocker, klap_endpoint):
@@ -32,7 +31,7 @@ def get_klap_proto_with_fake_endpoint(mocker, klap_endpoint):
 
 async def test_protocol_query_physical_device(dev):
     if not isinstance(dev.protocol, TPLinkKlap):
-        pytest.skip(f"skipping klap test for non-klap device")
+        pytest.skip("skipping klap test for non-klap device")
     else:
         for rng in range(10):
             dev.protocol.handshake_done = False
@@ -46,7 +45,7 @@ async def test_protocol_handshake(mocker, klap_endpoint):
 
     await proto.perform_handshake1(None)
 
-    assert proto.handshake_done == False
+    assert proto.handshake_done is False
 
     await proto.perform_handshake2(None)
 

@@ -21,7 +21,7 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Set
 
 from .emeterstatus import EmeterStatus
-from .exceptions import SmartDeviceException, SmartDeviceAuthenticationException
+from .exceptions import SmartDeviceAuthenticationException, SmartDeviceException
 from .modules import Emeter, Module
 from .protocol import TPLinkSmartHomeProtocol
 

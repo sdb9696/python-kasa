@@ -17,7 +17,7 @@ import struct
 from pprint import pformat as pf
 from typing import Dict, Generator, Optional, Union
 
-from .exceptions import SmartDeviceException, SmartDeviceAuthenticationException
+from .exceptions import SmartDeviceException
 from .json import dumps as json_dumps
 from .json import loads as json_loads
 
@@ -30,7 +30,7 @@ class TPLinkProtocol:
 
     DEFAULT_TIMEOUT = 5
 
-    def __init__(self, host: str, port: str) -> None:
+    def __init__(self, host: str, port: int = 0) -> None:
         """Create a protocol object."""
         self.host = host
         self.port = port
@@ -38,25 +38,29 @@ class TPLinkProtocol:
 
     @staticmethod
     def get_discovery_targets(targetip: str = "255.255.255.255"):
+        """Return a list of discovery targets for the protocol.  Abstract method to be overriden."""
         raise SmartDeviceException("get_discovery_targets should be overridden")
 
     @staticmethod
     def get_discovery_payload():
+        """Get discovery payload for the protocol.  Abstract method to be overriden."""
         raise SmartDeviceException("get_discovery_payload should be overridden")
 
     @staticmethod
     def try_get_discovery_info(port, data):
-        """Used after a discovery broadcast has resulted in a received datagram"""
+        """Try get the discovery info from supplied data after a discovery broadcast has resulted in a received datagram."""
         raise SmartDeviceException("try_get_discovery_info should be overridden")
 
     async def try_query_discovery_info(self):
-        """Used for a discovery query to a single device"""
+        """Try to query a device for discovery info."""
         raise SmartDeviceException("try_query_discovery_info should be overridden")
 
     async def query(self, request: Union[str, Dict], retry_count: int = 3) -> Dict:
+        """Query the device for the protocol.  Abstract method to be overriden."""
         raise SmartDeviceException("query should be overridden")
 
     async def close(self) -> None:
+        """Close the protocol.  Abstract method to be overriden."""
         raise SmartDeviceException("close should be overridden")
 
 
@@ -80,17 +84,19 @@ class TPLinkSmartHomeProtocol(TPLinkProtocol):
 
     @staticmethod
     def get_discovery_targets(targetip: str = "255.255.255.255"):
+        """Return a list of discovery targets for this protocol."""
         return [(targetip, TPLinkSmartHomeProtocol.DEFAULT_PORT)]
 
     @staticmethod
     def get_discovery_payload():
+        """Get discovery payload for this protocol."""
         req = json_dumps(TPLinkSmartHomeProtocol.DISCOVERY_QUERY)
         encrypted_req = TPLinkSmartHomeProtocol.encrypt(req)
         return encrypted_req[4:]
 
     @staticmethod
     def try_get_discovery_info(port, data):
-        """Returns discovery info if the ports match and we can decrypt the data"""
+        """Try to get discovery info which will return info if the ports match and we can decrypt the data or None otherwise."""
         if port == TPLinkSmartHomeProtocol.DEFAULT_PORT:
             try:
                 info = json_loads(TPLinkSmartHomeProtocol.decrypt(data))
@@ -103,7 +109,7 @@ class TPLinkSmartHomeProtocol(TPLinkProtocol):
             return None
 
     async def try_query_discovery_info(self):
-        """Returns discovery info if the ports match and we can decrypt the data"""
+        """Return discovery info if the ports match and we can decrypt the data."""
         try:
             info = await self.query(TPLinkSmartHomeProtocol.DISCOVERY_QUERY)
             return info
@@ -113,13 +119,6 @@ class TPLinkSmartHomeProtocol(TPLinkProtocol):
                 self.host,
             )
             return None
-
-    @staticmethod
-    def requires_authentication():
-        return False
-
-    def authentication_failed(self):
-        return False
 
     def _detect_event_loop_change(self) -> None:
         """Check if this object has been reused betwen event loops."""

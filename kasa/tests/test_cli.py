@@ -1,10 +1,10 @@
 import json
+import logging
 import sys
+from pprint import pformat as pf
 
 import pytest
 from asyncclick.testing import CliRunner
-from pprint import pformat as pf
-import logging
 
 from kasa import SmartDevice
 from kasa.cli import alias, brightness, cli, emeter, raw_command, state, sysinfo

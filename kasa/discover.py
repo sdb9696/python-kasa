@@ -4,11 +4,9 @@ import logging
 import socket
 from typing import Awaitable, Callable, Dict, Optional, Type, cast
 
-from kasa.json import dumps as json_dumps
-from kasa.json import loads as json_loads
-from kasa.protocolconfig import TPLinkProtocolConfig
-from kasa.protocol import TPLinkProtocol
 from kasa.auth import AuthCredentials, TPLinkAuthProtocol
+from kasa.protocol import TPLinkProtocol
+from kasa.protocolconfig import TPLinkProtocolConfig
 from kasa.smartbulb import SmartBulb
 from kasa.smartdevice import SmartDevice, SmartDeviceException
 from kasa.smartdimmer import SmartDimmer
@@ -73,16 +71,18 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
 
     def do_discover(self) -> None:
         """Send number of discovery datagrams."""
-
         for proto_class in TPLinkProtocolConfig.enabled_protocols():
             # If a discover_single is attempted for an device requiring authentication and authentication fails
             # then it will set self.protocol and trigger a datagram discovery to get other useful info
-            if self.protocol is None or isinstance(self.protocol, proto_class):
+            if self.protocol is None or isinstance(
+                self.protocol.__class__, proto_class
+            ):
                 for target in proto_class.get_discovery_targets(self.targetip):
                     payload = proto_class.get_discovery_payload()
                     _LOGGER.debug("[DISCOVERY] %s >> %s", target, payload)
                     for i in range(self.discovery_packets):
-                        self.transport.sendto(payload, target)
+                        if self.transport is not None:
+                            self.transport.sendto(payload, target)
 
     def datagram_received(self, data, addr) -> None:
         """Handle discovery responses."""
@@ -92,7 +92,7 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
         if ip in self.discovered_devices:
             return
 
-        proto = info = None
+        info = None
         for proto_class in TPLinkProtocolConfig.enabled_protocols():
             # If a discover_single is attempted for an device requiring authentication and authentication fails
             # then it will set self.protocol and trigger a datagram discovery to get other useful info
@@ -100,14 +100,19 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
                 info = proto_class.try_get_discovery_info(port, data)
                 if info is not None:
                     if issubclass(proto_class, TPLinkAuthProtocol):
+                        auth_proto: TPLinkAuthProtocol
                         if self.protocol is None:
-                            proto = proto_class(ip, self.auth_credentials)
+                            auth_proto = proto_class(
+                                ip, auth_credentials=self.auth_credentials
+                            )
                         else:
-                            proto = self.protocol
-                        proto = cast(TPLinkAuthProtocol, proto)
-                        unauthenticated_device = UnauthenticatedDevice(ip, proto, info)
+                            auth_proto = cast(TPLinkAuthProtocol, self.protocol)
+
+                        unauthenticated_device = UnauthenticatedDevice(
+                            ip, auth_proto, info
+                        )
                         self.discovered_devices[ip] = unauthenticated_device
-                        if not proto.authentication_failed:
+                        if not auth_proto.authentication_failed:
                             unauthenticated_device.try_authenticate(
                                 self._authentication_attempted_callback
                             )
@@ -119,7 +124,7 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
     async def _authentication_attempted_callback(
         self, unauthenticated_device: UnauthenticatedDevice
     ):
-        """Callback used for updating the device list once the authentication attempt is complete"""
+        """Update the device list once the authentication attempt is complete."""
         if unauthenticated_device.isauthenticated:
             self._get_device_and_add_to_list(
                 unauthenticated_device.host,
@@ -131,7 +136,7 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
                 asyncio.ensure_future(self.on_discovered(unauthenticated_device))
 
     def _get_device_and_add_to_list(self, ip, info, protocol=None):
-        """Instantiates the class and adds to discovered devices"""
+        """Get the device class, instantiate the device and add to discovered devices."""
         try:
             device_class = Discover._get_device_class(info)
         except SmartDeviceException as ex:
@@ -249,19 +254,21 @@ class Discover:
     @staticmethod
     async def discover_single(
         host: str, auth_credentials: AuthCredentials = AuthCredentials()
-    ) -> SmartDevice:
+    ) -> Optional[SmartDevice]:
         """Discover a single device by the given IP address.
 
         :param host: Hostname of device to query
         :rtype: SmartDevice
         :return: Object for querying/controlling found device.
         """
-
         # Iterate over the enabled protocols and return a device for that protocol
+        proto: TPLinkProtocol
         for proto_class in TPLinkProtocolConfig.enabled_protocols():
-            is_auth_proto = issubclass(proto_class, TPLinkAuthProtocol)
-            if is_auth_proto:
-                proto = proto_class(host, auth_credentials)
+            if issubclass(proto_class, TPLinkAuthProtocol):
+                auth_proto: TPLinkAuthProtocol = proto_class(
+                    host, auth_credentials=auth_credentials
+                )
+                proto = cast(TPLinkProtocol, auth_proto)
             else:
                 proto = proto_class(host)
 
@@ -274,17 +281,20 @@ class Discover:
                 await dev.update()
 
                 return dev
-            elif is_auth_proto and proto.authentication_failed:
+            elif (
+                issubclass(proto.__class__, TPLinkAuthProtocol)
+                and auth_proto.authentication_failed
+            ):
                 found_devs = await Discover.discover(targetip=host, protocol=proto)
                 if host in found_devs:
                     return found_devs[host]
 
         _LOGGER.info("Unable to query discovery info for host %s", host)
+        return None
 
     @staticmethod
     def _get_device_class(info: dict) -> Type[SmartDevice]:
         """Find SmartDevice subclass for device described by passed data."""
-
         if "system" not in info or "get_sysinfo" not in info["system"]:
             raise SmartDeviceException("No 'system' or 'get_sysinfo' in response")
 

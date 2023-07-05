@@ -17,8 +17,8 @@ from kasa.auth import AuthCredentials, TPLinkAuthProtocol
 from kasa.discover import Discover
 from kasa.emeterstatus import EmeterStatus
 from kasa.exceptions import SmartDeviceException
-from kasa.protocol import TPLinkSmartHomeProtocol
 from kasa.klapprotocol import TPLinkKlap
+from kasa.protocol import TPLinkSmartHomeProtocol
 from kasa.smartbulb import SmartBulb, SmartBulbPreset, TurnOnBehavior, TurnOnBehaviors
 from kasa.smartdevice import DeviceType, SmartDevice
 from kasa.smartdimmer import SmartDimmer

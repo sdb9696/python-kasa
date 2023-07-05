@@ -10,17 +10,16 @@ from unittest.mock import MagicMock
 import pytest  # type: ignore # see https://github.com/pytest-dev/pytest/issues/3342
 
 from kasa import (
+    AuthCredentials,
     Discover,
     SmartBulb,
     SmartDimmer,
     SmartLightStrip,
     SmartPlug,
     SmartStrip,
-    AuthCredentials,
 )
 
-from .newfakes import FakeTransportProtocol
-from .newfakes import FakeKLAPEndpoint
+from .newfakes import FakeKLAPEndpoint, FakeTransportProtocol
 
 SUPPORTED_DEVICES = glob.glob(
     os.path.dirname(os.path.abspath(__file__)) + "/fixtures/*.json"
