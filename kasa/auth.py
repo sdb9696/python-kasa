@@ -1,7 +1,8 @@
 """Authentication class for username / passwords."""
-from kasa.protocol import TPLinkProtocol
+from typing import Dict, Optional
+
 from kasa.exceptions import SmartDeviceException
-from typing import Any, Dict
+from kasa.protocol import TPLinkProtocol
 
 
 class AuthCredentials:
@@ -13,15 +14,17 @@ class AuthCredentials:
 
 
 class TPLinkAuthProtocol(TPLinkProtocol):
-    """Base class for authenticating protocol"""
+    """Base class for authenticating protocol."""
 
     def __init__(
         self,
         host: str,
-        port: str,
-        auth_credentials: AuthCredentials = AuthCredentials(),
+        port: int = 0,
+        auth_credentials: Optional[AuthCredentials] = AuthCredentials(),
     ):
         super().__init__(host=host, port=port)
+
+        self.auth_credentials: AuthCredentials
         if auth_credentials is None:
             self.auth_credentials = AuthCredentials()
         else:
@@ -30,7 +33,7 @@ class TPLinkAuthProtocol(TPLinkProtocol):
 
     @property
     def authentication_failed(self):
-        """Will be true if authentication negotiated but failed, false otherwise"""
+        """Will be true if authentication negotiated but failed, false otherwise."""
         return self._authentication_failed
 
     @authentication_failed.setter
@@ -38,4 +41,5 @@ class TPLinkAuthProtocol(TPLinkProtocol):
         self._authentication_failed = value
 
     def parse_unauthenticated_info(self, unauthenticated_info) -> Dict[str, str]:
+        """Return parsed unauthenticated info for the protocol."""
         raise SmartDeviceException("parse_unauthenticated_info should be overridden")

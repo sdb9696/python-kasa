@@ -1,14 +1,14 @@
+import hashlib
 import logging
 import re
+import secrets
+from collections import namedtuple
 
 from voluptuous import Coerce  # type: ignore
 from voluptuous import REMOVE_EXTRA, All, Any, Invalid, Optional, Range, Schema
 
-from ..protocol import TPLinkSmartHomeProtocol
 from ..auth import AuthCredentials
-from collections import namedtuple
-import hashlib
-import secrets
+from ..protocol import TPLinkSmartHomeProtocol
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -1,13 +1,11 @@
 """Module for smart plugs (HS100, HS110, ..)."""
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Set
 
-import asyncio
-
-from kasa.modules import Antitheft, Cloud, Schedule, Time, Usage
-from kasa.smartdevice import DeviceType, SmartDevice
-from kasa.exceptions import SmartDeviceAuthenticationException, SmartDeviceException
 from kasa.auth import TPLinkAuthProtocol
+from kasa.exceptions import SmartDeviceAuthenticationException
+from kasa.smartdevice import DeviceType, SmartDevice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,12 +38,12 @@ class UnauthenticatedDevice(SmartDevice):
     def internal_state(self) -> Any:
         """Return the internal state of the instance.
 
-        The returned object contains the raw results from the last update call.
+        The returned object contains the raw results from the discovery call.
         This should only be used for debugging purposes.
         """
-        return self.unauthenticated_info_raw
+        return self.unauthenticated_info_parsed
 
-    async def add_success_callback(self, task, callback, authenticating_device):
+    async def _add_success_callback(self, task, callback, authenticating_device):
         result = await task
         await callback(authenticating_device)
         return result
@@ -58,28 +56,28 @@ class UnauthenticatedDevice(SmartDevice):
             else:
                 self.isauthenticated = False
 
-        except SmartDeviceAuthenticationException as ex:
+        except SmartDeviceAuthenticationException:
             self.isauthenticated = False
         finally:
             self.triedauthentication = True
 
     def try_authenticate(self, authentication_callback):
-        """Attempt to authenticate and callback on a authentication_callback with self instance as the parameter"""
+        """Attempt to authenticate and callback on a authentication_callback with self instance as the parameter."""
         self.authentication_callback = authentication_callback
 
         task = asyncio.create_task(self._try_authenticate())
-        done_task = asyncio.create_task(
-            self.add_success_callback(task, self.authentication_callback, self)
+        asyncio.create_task(
+            self._add_success_callback(task, self.authentication_callback, self)
         )
 
     async def update(self, update_children: bool = True):
-        """Does nothing"""
+        """Update device with info.  Does nothing for this implementation."""
         pass
 
     @property  # type: ignore
     def led(self) -> bool:
         """Return the state of the led."""
-        return self.UNKNOWN_VALUE_STRING
+        return False
 
     def _try_get_state_value(self, value: str) -> Any:
         return (
@@ -91,7 +89,6 @@ class UnauthenticatedDevice(SmartDevice):
     @property  # type: ignore
     def state_information(self) -> Dict[str, Any]:
         """Return switch-specific state information."""
-
         return self.unauthenticated_info_parsed
 
     @property  # type: ignore
@@ -108,6 +105,7 @@ class UnauthenticatedDevice(SmartDevice):
 
     @property  # type: ignore
     def has_emeter(self) -> bool:
+        """Return true if device has emeter."""
         return False
 
     async def _modular_update(self, req: dict) -> None:
@@ -117,7 +115,7 @@ class UnauthenticatedDevice(SmartDevice):
     @property  # type: ignore
     def sys_info(self) -> Dict[str, Any]:
         """Return system information."""
-        return self.UNKNOWN_VALUE_STRING
+        return {"sys_info": self.UNKNOWN_VALUE_STRING}
 
     @property  # type: ignore
     def model(self) -> str:
@@ -137,7 +135,7 @@ class UnauthenticatedDevice(SmartDevice):
     @property  # type: ignore
     def timezone(self) -> Dict:
         """Return the current timezone."""
-        return None
+        return {}
 
     @property  # type: ignore
     def hw_info(self) -> Dict:
@@ -163,10 +161,11 @@ class UnauthenticatedDevice(SmartDevice):
     @property  # type: ignore
     def location(self) -> Dict:
         """Return geographical location."""
-        return None
+        return {}
 
     @property  # type: ignore
     def rssi(self) -> Optional[int]:
+        """Return rssi."""
         return None
 
     @property  # type: ignore
@@ -237,12 +236,3 @@ class UnauthenticatedDevice(SmartDevice):
     def is_color(self) -> bool:
         """Return True if the device supports color changes."""
         return False
-
-    @property
-    def internal_state(self) -> Any:
-        """Return the internal state of the instance.
-
-        The returned object contains the raw results from the discovery call.
-        This should only be used for debugging purposes.
-        """
-        return self.unauthenticated_info_parsed
