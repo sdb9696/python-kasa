@@ -527,15 +527,16 @@ class FakeKLAPEndpoint:
 
     @staticmethod
     def _generate_auth_hash(auth: AuthCredentials):
-        return FakeKLAPEndpoint._emdeefive(
-            FakeKLAPEndpoint._emdeefive(auth.username.encode())
-            + FakeKLAPEndpoint._emdeefive(auth.password.encode())
-        )
+        au = auth.username.encode()
+        ap = auth.password.encode()
+        aup = FakeKLAPEndpoint._emdeefive(au) + FakeKLAPEndpoint._emdeefive(ap)
+        return FakeKLAPEndpoint._emdeefive(aup)
 
     @staticmethod
     def _generate_owner_hash(auth: AuthCredentials):
         """Return the MD5 hash of the username in this object."""
-        return FakeKLAPEndpoint._emdeefive(auth.username.encode())
+        au = auth.username.encode()
+        return FakeKLAPEndpoint._emdeefive(au)
 
     async def post_handshake1(self, session, url, params=None, data=None):
         self.local_seed = data
