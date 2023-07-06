@@ -8,6 +8,7 @@ from voluptuous import Coerce  # type: ignore
 from voluptuous import REMOVE_EXTRA, All, Any, Invalid, Optional, Range, Schema
 
 from ..auth import AuthCredentials
+from ..klapprotocol import TPLinkKlap
 from ..protocol import TPLinkSmartHomeProtocol
 
 _LOGGER = logging.getLogger(__name__)
@@ -521,22 +522,16 @@ class FakeKLAPEndpoint:
         self.simulated_failure_count = count
 
     @staticmethod
-    def _emdeefive(payload: bytes) -> bytes:
-        # Try to avoid CodeQL security check with new function name
-        return hashlib.md5(payload).digest()
-
-    @staticmethod
     def _generate_auth_hash(auth: AuthCredentials):
-        au = auth.username.encode()
-        ap = auth.password.encode()
-        aup = FakeKLAPEndpoint._emdeefive(au) + FakeKLAPEndpoint._emdeefive(ap)
-        return FakeKLAPEndpoint._emdeefive(aup)
+        return TPLinkKlap._md5(
+            TPLinkKlap._md5(auth.username.encode())
+            + TPLinkKlap._md5(auth.password.encode())
+        )
 
     @staticmethod
     def _generate_owner_hash(auth: AuthCredentials):
         """Return the MD5 hash of the username in this object."""
-        au = auth.username.encode()
-        return FakeKLAPEndpoint._emdeefive(au)
+        return TPLinkKlap._md5(auth.username.encode())
 
     async def post_handshake1(self, session, url, params=None, data=None):
         self.local_seed = data
