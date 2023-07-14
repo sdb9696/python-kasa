@@ -21,6 +21,7 @@ __pycache__/
 
 # vscode
 .vscode
+python-kasa.code-workspace
 
 # VirtualEnvs
 venv

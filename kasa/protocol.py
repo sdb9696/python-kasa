@@ -25,22 +25,101 @@ _LOGGER = logging.getLogger(__name__)
 _NO_RETRY_ERRORS = {errno.EHOSTDOWN, errno.EHOSTUNREACH, errno.ECONNREFUSED}
 
 
-class TPLinkSmartHomeProtocol:
-    """Implementation of the TP-Link Smart Home protocol."""
+class TPLinkProtocol:
+    """Base class for all TP-Link Smart Home communication."""
 
-    INITIALIZATION_VECTOR = 171
-    DEFAULT_PORT = 9999
     DEFAULT_TIMEOUT = 5
-    BLOCK_SIZE = 4
 
     def __init__(self, host: str, *, port: Optional[int] = None) -> None:
         """Create a protocol object."""
         self.host = host
-        self.port = port or TPLinkSmartHomeProtocol.DEFAULT_PORT
+        self.port = port
+        self.timeout = self.DEFAULT_TIMEOUT
+
+    @staticmethod
+    def get_discovery_targets(targetip: str = "255.255.255.255"):
+        """Return a list of discovery targets for the protocol.  Abstract method to be overriden."""
+        raise SmartDeviceException("get_discovery_targets should be overridden")
+
+    @staticmethod
+    def get_discovery_payload():
+        """Get discovery payload for the protocol.  Abstract method to be overriden."""
+        raise SmartDeviceException("get_discovery_payload should be overridden")
+
+    @staticmethod
+    def try_get_discovery_info(port, data):
+        """Try get the discovery info from supplied data after a discovery broadcast has resulted in a received datagram."""
+        raise SmartDeviceException("try_get_discovery_info should be overridden")
+
+    async def try_query_discovery_info(self):
+        """Try to query a device for discovery info."""
+        raise SmartDeviceException("try_query_discovery_info should be overridden")
+
+    async def query(self, request: Union[str, Dict], retry_count: int = 3) -> Dict:
+        """Query the device for the protocol.  Abstract method to be overriden."""
+        raise SmartDeviceException("query should be overridden")
+
+    async def close(self) -> None:
+        """Close the protocol.  Abstract method to be overriden."""
+        raise SmartDeviceException("close should be overridden")
+
+
+class TPLinkSmartHomeProtocol(TPLinkProtocol):
+    """Implementation of the TP-Link Smart Home protocol."""
+
+    INITIALIZATION_VECTOR = 171
+    DEFAULT_PORT = 9999
+    BLOCK_SIZE = 4
+    DISCOVERY_QUERY = {
+        "system": {"get_sysinfo": None},
+    }
+
+    def __init__(self, host: str, *, port: Optional[int] = None) -> None:
+        """Create a protocol object."""
+        super().__init__(host=host, port=port or self.DEFAULT_PORT)
+
         self.reader: Optional[asyncio.StreamReader] = None
         self.writer: Optional[asyncio.StreamWriter] = None
         self.query_lock: Optional[asyncio.Lock] = None
         self.loop: Optional[asyncio.AbstractEventLoop] = None
+
+    @staticmethod
+    def get_discovery_targets(targetip: str = "255.255.255.255"):
+        """Return a list of discovery targets for this protocol."""
+        return [(targetip, TPLinkSmartHomeProtocol.DEFAULT_PORT)]
+
+    @staticmethod
+    def get_discovery_payload():
+        """Get discovery payload for this protocol."""
+        req = json_dumps(TPLinkSmartHomeProtocol.DISCOVERY_QUERY)
+        encrypted_req = TPLinkSmartHomeProtocol.encrypt(req)
+        return encrypted_req[4:]
+
+    @staticmethod
+    def try_get_discovery_info(port, data):
+        """Try to get discovery info which will return info if the ports match and we can decrypt the data or None otherwise."""
+        if port == TPLinkSmartHomeProtocol.DEFAULT_PORT:
+            try:
+                info = json_loads(TPLinkSmartHomeProtocol.decrypt(data))
+                if "system" in info and "get_sysinfo" in info["system"]:
+                    return info
+            except Exception as ex:
+                print(ex)
+                return None
+        else:
+            return None
+
+    async def try_query_discovery_info(self):
+        """Return discovery info if the ports match and we can decrypt the data."""
+        try:
+            info = await self.query(TPLinkSmartHomeProtocol.DISCOVERY_QUERY)
+            return info
+        except SmartDeviceException:
+            _LOGGER.debug(
+                "Unable to query discovery for %s with TPLinkSmartHomeProtocol",
+                self.host,
+            )
+            return None
 
     def _detect_event_loop_change(self) -> None:
         """Check if this object has been reused betwen event loops."""
@@ -69,10 +148,8 @@ class TPLinkSmartHomeProtocol:
             request = json_dumps(request)
             assert isinstance(request, str)
 
-        timeout = TPLinkSmartHomeProtocol.DEFAULT_TIMEOUT
-
         async with self.query_lock:
-            return await self._query(request, retry_count, timeout)
+            return await self._query(request, retry_count, self.timeout)
 
     async def _connect(self, timeout: int) -> None:
         """Try to connect or reconnect to the device."""
