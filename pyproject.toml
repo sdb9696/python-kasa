@@ -40,8 +40,8 @@ myst-parser = { version = "*", optional = true }
 docutils = { version = ">=0.17", optional = true }
 
 [tool.poetry.group.dev.dependencies]
-cython < "3.0"
-pyyaml < "6"
+cython = "<3.0"
+pyyaml = "<6"
 pytest = "*"
 pytest-cov = "*"
 pytest-asyncio = "*"
