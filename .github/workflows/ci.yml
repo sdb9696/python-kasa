@@ -100,12 +100,14 @@ jobs:
         if: matrix.extras == false
         run: |
           python -m pip install --upgrade pip poetry
+          python -m pip install wheel
           python -m pip install "Cython<3.0" pyyaml --no-build-isolation
           poetry install --with dev
       - name: "Install dependencies (with speedups)"
         if: matrix.extras == true
         run: |
           python -m pip install --upgrade pip poetry
+          python -m pip install wheel
           python -m pip install "Cython<3.0" pyyaml --no-build-isolation
           poetry install --with dev --extras speedups
       - name: "Run tests"
