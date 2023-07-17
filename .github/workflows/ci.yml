@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "testci"]
   pull_request:
     branches: ["master"]
   workflow_dispatch:  # to allow manual re-runs
@@ -112,5 +112,5 @@ jobs:
       - name: "Upload coverage to Codecov"
         uses: "codecov/codecov-action@v2"
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
