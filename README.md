@@ -191,7 +191,7 @@ If your device is unlisted but working, please open a pull request to update the
 * [Unofficial API documentation](https://github.com/plasticrake/tplink-smarthome-api)
 * [MQTT access to TP-Link devices, using python-kasa](https://github.com/flavio-fernandes/mqtt2kasa)
 
-### TP-Link Tapo support 2
+### TP-Link Tapo support 3
 
 * [Tapo P100 (Tapo P105/P100 plugs, Tapo L510E bulbs)](https://github.com/fishbigger/TapoP100)
   * [Home Assistant integration](https://github.com/fishbigger/HomeAssistant-Tapo-P100-Control)
