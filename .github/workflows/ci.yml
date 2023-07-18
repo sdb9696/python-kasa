@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["master", "testci"]
+    branches: ["master"]
   pull_request:
     branches: ["master"]
   workflow_dispatch:  # to allow manual re-runs
