@@ -97,18 +97,18 @@ jobs:
         with:
           python-version: "${{ matrix.python-version }}"
       - name: "Install dependencies pypy windows-latest"
-        if: ${{ ( matrix.python-version == 'pypy-3.8' && matrix.os == 'windows-latest' ) }}
+        if: ${{  matrix.python-version == 'pypy-3.8' && matrix.os == 'windows-latest' }}
         # Run poetry install multiple times for intermittent issue on windows pypy as per https://github.com/python-poetry/poetry/issues/7611
         run: |
           python -m pip install --upgrade pip poetry
           poetry install --with dev || poetry install --with dev || poetry install --with dev
       - name: "Install dependencies (no speedups)"
-        if: ${{ ( matrix.extras == false && matrix.python-version != 'pypy-3.8' && matrix.os != 'windows-latest' ) }}
+        if: ${{ matrix.extras == false && !(matrix.python-version == 'pypy-3.8' && matrix.os == 'windows-latest' ) }}
         run: |
           python -m pip install --upgrade pip poetry
           poetry install --with dev
       - name: "Install dependencies (with speedups)"
-        if: ${{ ( matrix.extras == true && matrix.python-version != 'pypy-3.8' && matrix.os != 'windows-latest' ) }}
+        if: ${{ matrix.extras == true && !(matrix.python-version == 'pypy-3.8' && matrix.os == 'windows-latest' ) }}
         run: |
           python -m pip install --upgrade pip poetry
           poetry install --with dev --extras speedups
