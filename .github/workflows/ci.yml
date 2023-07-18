@@ -98,6 +98,7 @@ jobs:
           python-version: "${{ matrix.python-version }}"
       - name: "Install dependencies (no speedups)"
         if: matrix.extras == false
+        # Run poetry install multiple times for intermittent issue on windows pypy as per https://github.com/python-poetry/poetry/issues/7611
         run: |
           python -m pip install --upgrade pip poetry
           poetry install --with dev
