@@ -3,12 +3,14 @@ from typing import Any, Dict, List, Optional
 
 from ..exceptions import SmartDeviceException
 from ..smartbulb import HSV, ColorTempRange, SmartBulb, SmartBulbPreset
+from ..smartprotocol import DynamicLightEffectParams, LightInfoParams, SmartRequest
 from .tapodevice import TapoDevice
 
-AVAILABLE_EFFECTS = {
+DEFAULT_EFFECTS = {
     "L1": "Party",
     "L2": "Relax",
 }
+LIGHT_EFFECT_NONE = "None"
 
 
 class TapoBulb(TapoDevice, SmartBulb):
@@ -16,6 +18,23 @@ class TapoBulb(TapoDevice, SmartBulb):
 
     Documentation TBD. See :class:`~kasa.smartbulb.SmartBulb` for now.
     """
+
+    async def update(self, update_children: bool = True):
+        """Call the device endpoint and update the device data."""
+        await super().update(update_children)
+
+        self._light_effect_rules = {}
+        if (light_effects := self._data.get("light_effect")) and (
+            light_effect_rules := light_effects.get("rule_list")
+        ):
+            self._light_effect_rules[LIGHT_EFFECT_NONE] = LIGHT_EFFECT_NONE
+            for rule in light_effect_rules:
+                rule_id = rule["id"]
+                if scene_name := rule.get("scene_name"):
+                    rule_name = self._decode_info(scene_name)
+                else:
+                    rule_name = DEFAULT_EFFECTS[rule_id]
+                self._light_effect_rules[rule_id] = rule_name
 
     @property
     def has_emeter(self) -> bool:
@@ -79,7 +98,7 @@ class TapoBulb(TapoDevice, SmartBulb):
             "brightness": self.brightness,
             "enable": current_effect != "",
             "id": current_effect,
-            "name": AVAILABLE_EFFECTS.get(current_effect, ""),
+            "name": self._light_effect_rules.get(current_effect, ""),
         }
 
         return data
@@ -91,7 +110,11 @@ class TapoBulb(TapoDevice, SmartBulb):
         Example:
             ['Party', 'Relax', ...]
         """
-        return list(AVAILABLE_EFFECTS.keys()) if self.has_effects else None
+        return (
+            list(self._light_effect_rules.values())
+            if self._light_effect_rules
+            else None
+        )
 
     @property
     def hsv(self) -> HSV:
@@ -157,16 +180,11 @@ class TapoBulb(TapoDevice, SmartBulb):
         if value is not None:
             self._raise_for_invalid_brightness(value)
 
-        request_payload = {
-            "color_temp": 0,  # If set, color_temp takes precedence over hue&sat
-            "hue": hue,
-            "saturation": saturation,
-        }
-        # The device errors on invalid brightness values.
-        if value is not None:
-            request_payload["brightness"] = value
+        params = LightInfoParams(
+            color_temp=0, hue=hue, saturation=saturation, brightness=value
+        )
 
-        return await self.protocol.query({"set_device_info": {**request_payload}})
+        return await self._smart_query_helper(SmartRequest("set_device_info", params))
 
     async def set_color_temp(
         self, temp: int, *, brightness=None, transition: Optional[int] = None
@@ -190,8 +208,9 @@ class TapoBulb(TapoDevice, SmartBulb):
                     *valid_temperature_range, temp
                 )
             )
+        params = LightInfoParams(color_temp=temp)
 
-        return await self.protocol.query({"set_device_info": {"color_temp": temp}})
+        return await self._smart_query_helper(SmartRequest("set_device_info", params))
 
     async def set_brightness(
         self, brightness: int, *, transition: Optional[int] = None
@@ -206,9 +225,8 @@ class TapoBulb(TapoDevice, SmartBulb):
         if not self.is_dimmable:  # pragma: no cover
             raise SmartDeviceException("Bulb is not dimmable.")
 
-        return await self.protocol.query(
-            {"set_device_info": {"brightness": brightness}}
-        )
+        params = LightInfoParams(brightness=brightness)
+        return await self._smart_query_helper(SmartRequest("set_device_info", params))
 
     # Default state information, should be made to settings
     """
@@ -233,15 +251,16 @@ class TapoBulb(TapoDevice, SmartBulb):
         transition: Optional[int] = None,
     ) -> None:
         """Set an effect on the device."""
-        raise NotImplementedError()
-        # TODO: the code below does to activate the effect but gives no error
-        return await self.protocol.query(
-            {
-                "set_device_info": {
-                    "dynamic_light_effect_enable": 1,
-                    "dynamic_light_effect_id": effect,
-                }
-            }
+        if effect == LIGHT_EFFECT_NONE:
+            params = DynamicLightEffectParams(enable=False)
+        else:
+            rule_id = list(self._light_effect_rules.keys())[
+                list(self._light_effect_rules.values()).index(effect)
+            ]
+            params = DynamicLightEffectParams(enable=True, id=rule_id)
+
+        return await self._smart_query_helper(
+            SmartRequest("set_dynamic_light_effect_rule_enable", params)
         )
 
     @property  # type: ignore
@@ -265,4 +284,9 @@ class TapoBulb(TapoDevice, SmartBulb):
     @property
     def presets(self) -> List[SmartBulbPreset]:
         """Return a list of available bulb setting presets."""
+        if (presets := self._data.get("preset")) and (states := presets.get("states")):
+            return [
+                SmartBulbPreset(**{"index": states.index(state), **state})
+                for state in states
+            ]
         return []

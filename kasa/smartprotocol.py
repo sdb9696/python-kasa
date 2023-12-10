@@ -9,8 +9,10 @@ import base64
 import logging
 import time
 import uuid
+from dataclasses import asdict, dataclass
+from enum import Enum, auto
 from pprint import pformat as pf
-from typing import Dict, Union
+from typing import Dict, Optional, Type, Union
 
 import httpx
 
@@ -29,6 +31,179 @@ from .protocol import BaseTransport, TPLinkProtocol, md5
 
 _LOGGER = logging.getLogger(__name__)
 logging.getLogger("httpx").propagate = False
+
+
+@dataclass
+class SmartRequestParams:
+    """Smart request params."""
+
+    def to_dict(self):
+        """Return the params as a dict with values of None ommited."""
+        return asdict(
+            self, dict_factory=lambda x: {k: v for (k, v) in x if v is not None}
+        )
+
+
+@dataclass
+class GetRulesParams(SmartRequestParams):
+    """Get Rules Params."""
+
+    start_index: int = 0
+
+
+@dataclass
+class GetTriggerLogsParams(SmartRequestParams):
+    """Trigger Logs params."""
+
+    page_size: int = 5
+    start_id: int = 0
+
+
+@dataclass
+class LedStatusParams(SmartRequestParams):
+    """LED Status params."""
+
+    led_rule: Optional[str] = None
+
+    @staticmethod
+    def from_bool(state: bool):
+        """Set the led_rule from the state."""
+        rule = "always" if state else "never"
+        return LedStatusParams(led_rule=rule)
+
+
+@dataclass
+class LightInfoParams(SmartRequestParams):
+    """LightInfo params."""
+
+    brightness: Optional[int] = None
+    color_temp: Optional[int] = None
+    hue: Optional[int] = None
+    saturation: Optional[int] = None
+
+
+@dataclass
+class DynamicLightEffectParams(SmartRequestParams):
+    """LightInfo params."""
+
+    enable: bool
+    id: Optional[str] = None
+
+
+class SmartRequest:
+    """Class to represent a smart protocol request."""
+
+    def __init__(self, method_name: str, params: Optional[SmartRequestParams] = None):
+        self.method_name = method_name
+        if params:
+            self.params = params.to_dict()
+        else:
+            self.params = None
+
+    def to_dict(self):
+        """Return the request as a dict suitable for passing to query()."""
+        return {self.method_name: self.params}
+
+
+class SmartComponentUpdateType(Enum):
+    """Class to represent component update type."""
+
+    NONE = auto()
+    SET = auto()
+    ADD_EDIT = auto()
+    ADD_EDIT_REMOVE = auto()
+    CUSTOM = auto()
+
+
+@dataclass
+class SmartComponentInfo:
+    """Class to represent component info."""
+
+    method_base: str
+    param_class: Optional[Type[SmartRequestParams]] = None
+    update_type: SmartComponentUpdateType = SmartComponentUpdateType.SET
+    custom_set_method: Optional[str] = None
+    custom_get_method: Optional[str] = None
+
+    @property
+    def get_method_name(self):
+        """The method name for getting data from the device."""
+        if self.custom_get_method:
+            return self.custom_get_method
+        if self.update_type in [
+            SmartComponentUpdateType.ADD_EDIT,
+            SmartComponentUpdateType.ADD_EDIT_REMOVE,
+        ]:
+            return "get_" + self.method_base + "s"
+        return "get_" + self.method_base
+
+    @property
+    def set_method_name(self):
+        """The method name for setting data from the device."""
+        if self.custom_set_method:
+            return self.custom_set_method
+        return "set_" + self.method_base
+
+
+COMPONENT_INFO_MAP = {
+    "device": SmartComponentInfo("device_info"),
+    "firmware": SmartComponentInfo("auto_update_info"),
+    "quick_setup": None,
+    "time": SmartComponentInfo("device_time"),
+    "wireless": SmartComponentInfo("wireless_scan_info"),
+    "schedule": SmartComponentInfo(
+        "schedule_rule",
+        GetRulesParams,
+        update_type=SmartComponentUpdateType.ADD_EDIT_REMOVE,
+    ),
+    "countdown": SmartComponentInfo(
+        "countdown_rule",
+        GetRulesParams,
+        update_type=SmartComponentUpdateType.ADD_EDIT_REMOVE,
+    ),
+    "antitheft": SmartComponentInfo(
+        "antitheft_rule",
+        GetRulesParams,
+        update_type=SmartComponentUpdateType.ADD_EDIT_REMOVE,
+    ),
+    "account": None,
+    "synchronize": None,
+    "sunrise_sunset": None,
+    "led": SmartComponentInfo("led_info", LedStatusParams),
+    "cloud_connect": None,
+    "iot_cloud": None,
+    "device_local_time": None,
+    "default_states": None,
+    "auto_off": SmartComponentInfo(
+        "auto_off_config", GetRulesParams
+    ),  # sleep_mode_interval
+    "localSmart": None,
+    "energy_monitoring": SmartComponentInfo(
+        "energy_usage", update_type=SmartComponentUpdateType.NONE
+    ),
+    "power_protection": SmartComponentInfo(
+        "current_power",
+        update_type=SmartComponentUpdateType.CUSTOM,
+        custom_set_method="set_guard_mode",
+    ),
+    "matter": None,
+    "preset": SmartComponentInfo(
+        "preset_rule",
+        GetRulesParams,
+        update_type=SmartComponentUpdateType.ADD_EDIT_REMOVE,
+    ),
+    "brightness": None,
+    "color": None,
+    "color_temperature": None,
+    "auto_light": SmartComponentInfo("auto_light_info"),
+    "light_effect": SmartComponentInfo(
+        "dynamic_light_effect_rule",
+        GetRulesParams,
+        update_type=SmartComponentUpdateType.ADD_EDIT_REMOVE,
+    ),
+    "bulb_quick_control": None,
+    "on_off_gradually": None,
+}
 
 
 class SmartProtocol(TPLinkProtocol):
@@ -62,26 +237,7 @@ class SmartProtocol(TPLinkProtocol):
     async def query(self, request: Union[str, Dict], retry_count: int = 3) -> Dict:
         """Query the device retrying for retry_count on failure."""
         async with self._query_lock:
-            resp_dict = await self._query(request, retry_count)
-
-            if (
-                error_code := SmartErrorCode(resp_dict.get("error_code"))  # type: ignore[arg-type]
-            ) != SmartErrorCode.SUCCESS:
-                msg = (
-                    f"Error querying device: {self._host}: "
-                    + f"{error_code.name}({error_code.value})"
-                )
-                if error_code in SMART_TIMEOUT_ERRORS:
-                    raise TimeoutException(msg)
-                if error_code in SMART_RETRYABLE_ERRORS:
-                    raise RetryableException(msg)
-                if error_code in SMART_AUTHENTICATION_ERRORS:
-                    raise AuthenticationException(msg)
-                raise SmartDeviceException(msg)
-
-            if "result" in resp_dict:
-                return resp_dict["result"]
-            return {}
+            return await self._query(request, retry_count)
 
     async def _query(self, request: Union[str, Dict], retry_count: int = 3) -> Dict:
         for retry in range(retry_count + 1):
@@ -143,10 +299,39 @@ class SmartProtocol(TPLinkProtocol):
         # make mypy happy, this should never be reached..
         raise SmartDeviceException("Query reached somehow to unreachable")
 
-    async def _execute_query(self, request: Union[str, Dict], retry_count: int) -> Dict:
+    def _handle_response_error_code(self, resp_dict: dict):
+        if (
+            error_code := SmartErrorCode(resp_dict.get("error_code"))  # type: ignore[arg-type]
+        ) != SmartErrorCode.SUCCESS:
+            msg = (
+                f"Error querying device: {self.host}: "
+                + f"{error_code.name}({error_code.value})"
+            )
+            if method := resp_dict.get("method"):
+                msg += f" for method: {method}"
+            if error_code in SMART_TIMEOUT_ERRORS:
+                raise TimeoutException(msg)
+            if error_code in SMART_RETRYABLE_ERRORS:
+                raise RetryableException(msg)
+            if error_code in SMART_AUTHENTICATION_ERRORS:
+                raise AuthenticationException(msg)
+            raise SmartDeviceException(msg)
+
+    async def _execute_query(
+        self, request: Union[str, Dict], retry_count: int = 3
+    ) -> Dict:
+        is_multi = False
         if isinstance(request, dict):
-            smart_method = next(iter(request))
-            smart_params = request[smart_method]
+            if len(request) == 1:
+                smart_method = next(iter(request))
+                smart_params = request[smart_method]
+            else:
+                is_multi = True
+                requests = []
+                for method, params in request.items():
+                    requests.append({"method": method, "params": params})
+                smart_method = "multipleRequest"
+                smart_params = {"requests": requests}
         else:
             smart_method = request
             smart_params = None
@@ -157,15 +342,31 @@ class SmartProtocol(TPLinkProtocol):
             self._host,
             _LOGGER.isEnabledFor(logging.DEBUG) and pf(smart_request),
         )
-        response_data = await self._transport.send(smart_request)
+        resp_dict = await self._transport.send(smart_request)
 
+        self._handle_response_error_code(resp_dict)
         _LOGGER.debug(
             "%s << %s",
             self._host,
-            _LOGGER.isEnabledFor(logging.DEBUG) and pf(response_data),
+            _LOGGER.isEnabledFor(logging.DEBUG) and pf(resp_dict),
         )
 
-        return response_data
+        if result := resp_dict.get("result"):
+            if is_multi:
+                if (responses := result.get("responses")) is None:
+                    raise SmartDeviceException(
+                        "Unexpected response to multipleRequest "
+                        + f"method for {self.host}: {result}"
+                    )
+                multi_result = {}
+                for response in responses:
+                    self._handle_response_error_code(response)
+                    result = response.get("result", {})
+                    multi_result[response["method"]] = result
+                return multi_result
+
+            return {smart_method: result}
+        return {smart_method: None}
 
     async def close(self) -> None:
         """Close the protocol."""

@@ -2,13 +2,13 @@
 import base64
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Set, cast
+from typing import Any, Dict, List, Optional, Set, Union, cast
 
 from ..aestransport import AesTransport
 from ..credentials import Credentials
 from ..exceptions import AuthenticationException
 from ..smartdevice import SmartDevice
-from ..smartprotocol import SmartProtocol
+from ..smartprotocol import COMPONENT_INFO_MAP, SmartProtocol, SmartRequest
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class TapoDevice(SmartDevice):
         timeout: Optional[int] = None,
     ) -> None:
         super().__init__(host, port=port, credentials=credentials, timeout=timeout)
-        self._components: Optional[Dict[str, Any]] = None
+        self._components: Optional[Dict[str, int]] = None
         self._state_information: Dict[str, Any] = {}
         self._discovery_info: Optional[Dict[str, Any]] = None
         self.protocol = SmartProtocol(
@@ -34,6 +34,7 @@ class TapoDevice(SmartDevice):
                 host, credentials=credentials, timeout=timeout, port=port
             ),
         )
+        self._features = set()
 
     async def update(self, update_children: bool = True):
         """Update the device."""
@@ -41,13 +42,44 @@ class TapoDevice(SmartDevice):
             raise AuthenticationException("Tapo plug requires authentication.")
 
         if self._components is None:
-            self._components = await self.protocol.query("component_nego")
+            self._components = {}
+            response = await self._smart_query_helper(SmartRequest("component_nego"))
+            for component in response["component_nego"]["component_list"]:
+                self._components[component["id"]] = component["ver_code"]
 
-        self._info = await self.protocol.query("get_device_info")
-        self._usage = await self.protocol.query("get_device_usage")
-        self._time = await self.protocol.query("get_device_time")
+        request_list = [
+            SmartRequest(
+                "get_device_usage"
+            ),  # Method does not seem to map to a component
+        ]
+        for component in self._components:
+            if component_info := COMPONENT_INFO_MAP.get(component):
+                params = (
+                    component_info.param_class() if component_info.param_class else None
+                )
+                request = SmartRequest(component_info.get_method_name, params)
+                request_list.append(request)
+            else:
+                pass
+        response = await self._smart_query_helper(request_list)
+        self._data = {}
+        for component in self._components:
+            if component_info := COMPONENT_INFO_MAP.get(component):
+                # This shouldn't really happen outside of testing with partial fixtures
+                if (result := response.get(component_info.get_method_name)) is None:
+                    _LOGGER.warning(
+                        f"No result returned for {component_info.get_method_name}"
+                        + f" for {self.host}"
+                    )
+                self._data[component] = result
+                self._features.add(component)
+        self._data["usage"] = response["get_device_usage"]
 
-        self._last_update = self._data = {
+        self._info = self._data["device"]
+        self._usage = self._data["usage"]
+        self._time = self._data["time"]
+
+        self._last_update = {
             "components": self._components,
             "info": self._info,
             "usage": self._usage,
@@ -55,6 +87,10 @@ class TapoDevice(SmartDevice):
         }
 
         _LOGGER.debug("Got an update: %s", self._data)
+
+    @staticmethod
+    def _decode_info(info: str) -> str:
+        return base64.b64decode(info).decode()
 
     @property
     def sys_info(self) -> Dict[str, Any]:
@@ -135,10 +171,10 @@ class TapoDevice(SmartDevice):
         """Return all the internal state data."""
         return self._data
 
-    async def _query_helper(
-        self, target: str, cmd: str, arg: Optional[Dict] = None, child_ids=None
+    async def _smart_query_helper(
+        self, smart_request: Union[SmartRequest, List[SmartRequest]]
     ) -> Any:
-        res = await self.protocol.query({cmd: arg})
+        res = await self.protocol.query(self._get_smart_request_as_dict(smart_request))
 
         return res
 
@@ -151,11 +187,10 @@ class TapoDevice(SmartDevice):
             "SSID": base64.b64decode(str(self._info.get("ssid"))).decode(),
         }
 
-    @property
+    @property  # type: ignore
     def features(self) -> Set[str]:
-        """Return the list of supported features."""
-        # TODO:
-        return set()
+        """Return a set of features that the device supports."""
+        return self._features
 
     @property
     def is_on(self) -> bool:
@@ -173,3 +208,14 @@ class TapoDevice(SmartDevice):
     def update_from_discover_info(self, info):
         """Update state from info from the discover call."""
         self._discovery_info = info
+
+    def _get_smart_request_as_dict(
+        self, smart_request: Union[SmartRequest, List[SmartRequest]]
+    ) -> dict:
+        if isinstance(smart_request, list):
+            request = {}
+            for sr in smart_request:
+                request[sr.method_name] = sr.params
+        else:
+            request = smart_request.to_dict()
+        return request

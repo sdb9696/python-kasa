@@ -1,6 +1,7 @@
 import copy
 import logging
 import re
+import warnings
 from json import loads as json_loads
 
 from voluptuous import (
@@ -320,16 +321,38 @@ class FakeSmartTransport(BaseTransport):
     async def handshake(self) -> None:
         pass
 
-    async def send(self, request: str):
-        request_dict = json_loads(request)
+    def _send_request(self, request_dict: dict):
         method = request_dict["method"]
         params = request_dict["params"]
         if method == "component_nego" or method[:4] == "get_":
-            return {"result": self.info[method], "error_code": 0}
+            if method in self.info:
+                return {"result": self.info[method], "error_code": 0}
+            else:
+                warnings.warn(
+                    UserWarning(
+                        f"Fixture missing expected method {method}, try to regenerate"
+                    ),
+                    stacklevel=1,
+                )
+                return {"result": {}, "error_code": 0}
         elif method[:4] == "set_":
             target_method = f"get_{method[4:]}"
             self.info[target_method].update(params)
             return {"error_code": 0}
+
+    async def send(self, request: str):
+        request_dict = json_loads(request)
+        method = request_dict["method"]
+        params = request_dict["params"]
+        if method == "multipleRequest":
+            responses = []
+            for request in params["requests"]:
+                response = self._send_request(request)  # type: ignore[arg-type]
+                response["method"] = request["method"]  # type: ignore[index]
+                responses.append(response)
+            return {"result": {"responses": responses}, "error_code": 0}
+        else:
+            return self._send_request(request_dict)
 
     async def close(self) -> None:
         pass

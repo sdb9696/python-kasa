@@ -104,6 +104,25 @@
         "obd_src": "tplink",
         "owner": "00000000000000000000000000000000"
     },
+    "get_antitheft_rules": {
+        "antitheft_rule_max_count": 1,
+        "enable": false,
+        "rule_list": []
+    },
+    "get_auto_off_config": {
+        "delay_min": 120,
+        "enable": false
+    },
+    "get_auto_update_info": {
+        "enable": true,
+        "random_range": 120,
+        "time": 180
+    },
+    "get_countdown_rules": {
+        "countdown_rule_max_count": 1,
+        "enable": false,
+        "rule_list": []
+    },
     "get_current_power": {
         "current_power": 0
     },
@@ -130,13 +149,13 @@
         "model": "P110",
         "nickname": "I01BU0tFRF9OQU1FIw==",
         "oem_id": "00000000000000000000000000000000",
-        "on_time": 119335,
+        "on_time": 3351,
         "overcurrent_status": "normal",
         "overheated": false,
         "power_protection_status": "normal",
         "region": "Europe/London",
-        "rssi": -57,
-        "signal_level": 2,
+        "rssi": -80,
+        "signal_level": 1,
         "specs": "",
         "ssid": "I01BU0tFRF9TU0lEIw==",
         "time_diff": 0,
@@ -145,23 +164,23 @@
     "get_device_time": {
         "region": "Europe/London",
         "time_diff": 0,
-        "timestamp": 1701370224
+        "timestamp": 1702903554
     },
     "get_device_usage": {
         "power_usage": {
-            "past30": 75,
-            "past7": 69,
+            "past30": 70,
+            "past7": 0,
             "today": 0
         },
         "saved_power": {
-            "past30": 2029,
-            "past7": 1964,
-            "today": 1130
+            "past30": 24309,
+            "past7": 7003,
+            "today": 55
         },
         "time_usage": {
-            "past30": 2104,
-            "past7": 2033,
-            "today": 1130
+            "past30": 24379,
+            "past7": 7003,
+            "today": 55
         }
     },
     "get_energy_usage": {
@@ -171,10 +190,51 @@
             0,
             0
         ],
-        "local_time": "2023-11-30 18:50:24",
-        "month_energy": 75,
-        "month_runtime": 2104,
+        "local_time": "2023-12-18 12:45:54",
+        "month_energy": 0,
+        "month_runtime": 22018,
         "today_energy": 0,
-        "today_runtime": 1130
+        "today_runtime": 55
+    },
+    "get_led_info": {
+        "led_rule": "always",
+        "led_status": true,
+        "night_mode": {
+            "end_time": 484,
+            "night_mode_type": "sunrise_sunset",
+            "start_time": 953,
+            "sunrise_offset": 0,
+            "sunset_offset": 0
+        }
+    },
+    "get_schedule_rules": {
+        "enable": true,
+        "rule_list": [
+            {
+                "day": 19,
+                "desired_states": {
+                    "on": true
+                },
+                "e_action": "none",
+                "e_min": 0,
+                "e_type": "normal",
+                "enable": true,
+                "id": "S1",
+                "mode": "repeat",
+                "month": 12,
+                "s_min": 710,
+                "s_type": "normal",
+                "time_offset": 0,
+                "week_day": 127,
+                "year": 2023
+            }
+        ],
+        "schedule_rule_max_count": 32,
+        "start_index": 0,
+        "sum": 1
+    },
+    "get_wireless_scan_info": {
+        "ap_list": [],
+        "wep_supported": false
     }
 }

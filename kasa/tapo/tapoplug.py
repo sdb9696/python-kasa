@@ -7,6 +7,7 @@ from ..credentials import Credentials
 from ..emeterstatus import EmeterStatus
 from ..modules import Emeter
 from ..smartdevice import DeviceType, requires_update
+from ..smartprotocol import LedStatusParams, SmartRequest
 from .tapodevice import TapoDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,13 +40,9 @@ class TapoPlug(TapoDevice):
         """Call the device endpoint and update the device data."""
         await super().update(update_children)
 
-        self._energy = await self.protocol.query("get_energy_usage")
-        self._emeter = await self.protocol.query("get_current_power")
-
-        self._data["energy"] = self._energy
-        self._data["emeter"] = self._emeter
-
-        _LOGGER.debug("Got an update: %s %s", self._energy, self._emeter)
+        self._energy_monitoring = self._data["energy_monitoring"]
+        self._power_protection = self._data["power_protection"]
+        self._led = self._data["led"]
 
     @property
     def state_information(self) -> Dict[str, Any]:
@@ -56,6 +53,7 @@ class TapoPlug(TapoDevice):
                 "On since": self.on_since,
                 "auto_off_status": self._info.get("auto_off_status"),
                 "auto_off_remain_time": self._info.get("auto_off_remain_time"),
+                "LED State": self.led,
             },
         }
 
@@ -64,9 +62,9 @@ class TapoPlug(TapoDevice):
         """Get the emeter status."""
         return EmeterStatus(
             {
-                "power_mw": self._energy.get("current_power"),
+                "power_mw": self._energy_monitoring.get("current_power"),
                 "total": self._convert_energy_data(
-                    self._energy.get("today_energy"), 1 / 1000
+                    self._energy_monitoring.get("today_energy"), 1 / 1000
                 ),
             }
         )
@@ -74,12 +72,16 @@ class TapoPlug(TapoDevice):
     @property
     def emeter_today(self) -> Optional[float]:
         """Get the emeter value for today."""
-        return self._convert_energy_data(self._energy.get("today_energy"), 1 / 1000)
+        return self._convert_energy_data(
+            self._energy_monitoring.get("today_energy"), 1 / 1000
+        )
 
     @property
     def emeter_this_month(self) -> Optional[float]:
         """Get the emeter value for this month."""
-        return self._convert_energy_data(self._energy.get("month_energy"), 1 / 1000)
+        return self._convert_energy_data(
+            self._energy_monitoring.get("month_energy"), 1 / 1000
+        )
 
     @property
     def on_since(self) -> Optional[datetime]:
@@ -92,3 +94,15 @@ class TapoPlug(TapoDevice):
     def _convert_energy_data(self, data, scale) -> Optional[float]:
         """Return adjusted emeter information."""
         return data if not data else data * scale
+
+    @property  # type: ignore
+    @requires_update
+    def led(self) -> bool:
+        """Return the state of the led."""
+        return self._led["led_status"]
+
+    async def set_led(self, state: bool):
+        """Set the state of the led (night mode)."""
+        await self._smart_query_helper(
+            SmartRequest("set_led_info", LedStatusParams.from_bool(state))
+        )

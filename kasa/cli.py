@@ -38,6 +38,8 @@ except ImportError:
         @wraps(echo_func)
         def wrapper(message=None, *args, **kwargs):
             if message is not None:
+                if not isinstance(message, str):
+                    message = repr(message)
                 message = re.sub(r"\[/?.+?]", "", message)
             echo_func(message, *args, **kwargs)
 
@@ -478,6 +480,10 @@ async def state(dev: SmartDevice):
             echo(f"\t[green]+ {module}[/green]")
         else:
             echo(f"\t[red]- {module}[/red]")
+
+    echo("\n\t[bold]== Features ==[/bold]")
+    for feature in dev.features:
+        echo(f"\t[green]+ {feature}[/green]")
 
     return dev.internal_state
 
