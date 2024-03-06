@@ -103,11 +103,11 @@ jobs:
         run: |
           poetry install --all-extras
       - name: "Run tests (no cov)"
-        if: ${{ startsWith(matrix.python-version, 'pypy') }}
+        if: ${{ startsWith(matrix.python-version, 'xpypy') }}
         run: |
           poetry run pytest
       - name: "Run tests (coverage)"
-        if: ${{ !startsWith(matrix.python-version, 'pypy') }}
+        if: ${{ !startsWith(matrix.python-version, 'xpypy') }}
         run: |
           poetry run pytest --cov kasa --cov-report xml
       - name: "Upload coverage to Codecov"
