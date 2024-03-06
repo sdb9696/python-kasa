@@ -100,7 +100,7 @@ jobs:
         if: matrix.extras == true
         run: |
           poetry install --all-extras
-      - name: "Run tests (no coverage)"
+      - name: "Run tests (no cov)"
         if: ${{ startsWith(matrix.python-version, 'pypy') }}
         run: |
           poetry run pytest
