@@ -56,7 +56,7 @@ def _get_subclasses(of_class):
                 and module.__package__ != "kasa"
             ):
                 subclasses.add((module.__package__ + "." + name, obj))
-    return sorted(subclasses)
+    return subclasses
 
 
 device_classes = pytest.mark.parametrize(

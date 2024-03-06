@@ -473,7 +473,7 @@ def _get_subclasses(of_class):
                 and name != "_deprecated_TPLinkSmartHomeProtocol"
             ):
                 subclasses.add((name, obj))
-    return sorted(subclasses)
+    return subclasses
 
 
 @pytest.mark.parametrize(
