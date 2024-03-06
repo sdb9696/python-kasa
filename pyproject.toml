@@ -43,6 +43,7 @@ docutils = { version = ">=0.17", optional = true }
 # enhanced cli support
 ptpython = { version = "*", optional = true }
 rich = { version = "*", optional = true }
+pytest-xdist = {version = "^3.5.0", extras = ["psutil"]}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
@@ -89,6 +90,7 @@ markers = [
     "requires_dummy: test requires dummy data to pass, skipped on real devices",
 ]
 asyncio_mode = "auto"
+addopts = "-nauto"
 
 [tool.doc8]
 paths = ["docs"]
