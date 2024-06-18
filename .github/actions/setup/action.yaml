@@ -24,7 +24,7 @@ runs:
       id: pipx-env-setup
       # pipx default home and bin dir are not writable by the cache action
       # so override them here and add the bin dir to PATH for later steps.
-      # This also ensures the pipx cache only contains poetry
+      # This also ensures the pipx cache only contains uv
       run: |
         SEP="${{ !startsWith(runner.os, 'windows') && '/' || '\\' }}"
         PIPX_CACHE="${{ github.workspace }}${SEP}pipx_cache"
@@ -41,7 +41,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ steps.pipx-env-setup.outputs.pipx-cache-path }}
-        key: ${{ runner.os }}-${{ runner.arch }}-python-${{ inputs.python-version }}-${{ steps.setup-python.outputs.python-version }}-pipx-${{ steps.pipx-env-setup.outputs.pipx-version }}-poetry-${{ inputs.poetry-version }}
+        key: ${{ runner.os }}-${{ runner.arch }}-python-${{ inputs.python-version }}-${{ steps.setup-python.outputs.python-version }}-pipx-${{ steps.pipx-env-setup.outputs.pipx-version }}-uv-${{ inputs.uv-version }}
 
     - name: Install uv
       if: steps.pipx-cache.outputs.cache-hit != 'true'
