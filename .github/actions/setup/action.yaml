@@ -11,6 +11,8 @@ inputs:
     required: true
   cache-pre-commit:
     default: false
+  cache-version:
+    default: "v0.1"
 
 runs:
   using: composite
@@ -41,7 +43,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ steps.pipx-env-setup.outputs.pipx-cache-path }}
-        key: ${{ runner.os }}-${{ runner.arch }}-python-${{ inputs.python-version }}-${{ steps.setup-python.outputs.python-version }}-pipx-${{ steps.pipx-env-setup.outputs.pipx-version }}-uv-${{ inputs.uv-version }}
+        key: cache-${{ inputs.cache-version }}-${{ runner.os }}-${{ runner.arch }}-python-${{ inputs.python-version }}-${{ steps.setup-python.outputs.python-version }}-pipx-${{ steps.pipx-env-setup.outputs.pipx-version }}-uv-${{ inputs.uv-version }}
 
     - name: Install uv
       if: steps.pipx-cache.outputs.cache-hit != 'true'
@@ -61,7 +63,7 @@ runs:
       with:
         path: |
           ${{ steps.uv-cache-location.outputs.uv-cache-location }}
-        key: ${{ runner.os }}-${{ runner.arch }}-python-${{ inputs.uv-version }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('uv.lock') }}-options-${{ inputs.uv-install-options }}
+        key: cache-${{ inputs.cache-version }}-${{ runner.os }}-${{ runner.arch }}-python-${{ steps.setup-python.outputs.python-version }}-uv-${{ inputs.uv-version }}-${{ hashFiles('uv.lock') }}-options-${{ inputs.uv-install-options }}
 
     - name: "uv install"
       shell: bash
@@ -80,4 +82,4 @@ runs:
       name: Pre-commit cache
       with:
         path: ~/.cache/pre-commit/
-        key: ${{ runner.os }}-${{ runner.arch }}-pre-commit-${{ steps.pre-commit-version.outputs.pre-commit-version }}-python-${{ inputs.python-version }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
+        key: cache-${{ inputs.cache-version }}-${{ runner.os }}-${{ runner.arch }}-pre-commit-${{ steps.pre-commit-version.outputs.pre-commit-version }}-python-${{ inputs.python-version }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
