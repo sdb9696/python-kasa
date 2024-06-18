@@ -35,7 +35,8 @@ jobs:
           uv run pre-commit run ruff --all-files
       - name: "Typing checks (mypy)"
         run: |
-          uv run pre-commit run mypy --all-files
+          source .venv/bin/activate
+          pre-commit run mypy --all-files
       - name: "Run trailing-whitespace"
         run: |
           uv run pre-commit run trailing-whitespace --all-files
