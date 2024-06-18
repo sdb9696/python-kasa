@@ -68,7 +68,7 @@ runs:
     - name: "uv install"
       shell: bash
       run: |
-        uv sync -v --python "${{ steps.setup-python.outputs.python-path }}" ${{ inputs.uv-install-options }}
+        uv sync --python "${{ steps.setup-python.outputs.python-path }}" ${{ inputs.uv-install-options }}
 
     - name: Read pre-commit version
       if: inputs.cache-pre-commit == 'true'
