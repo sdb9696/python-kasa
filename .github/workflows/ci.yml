@@ -8,7 +8,7 @@ on:
   workflow_dispatch:  # to allow manual re-runs
 
 env:
-  UV_VERSION: 0.2.11
+  UV_VERSION: 0.2.12
 
 jobs:
   linting:
