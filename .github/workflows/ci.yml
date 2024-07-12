@@ -25,7 +25,6 @@ jobs:
         id: setup-python
         with:
           python-version: "${{ matrix.python-version }}"
-          cache: 'poetry'
       - name: "Install dependencies"
         run: |
           poetry install
