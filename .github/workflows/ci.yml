@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.8"]
+        python-version: ["3.11"]
 
     steps:
       - uses: "actions/checkout@v4"
@@ -25,7 +25,6 @@ jobs:
         id: setup-python
         with:
           python-version: "${{ matrix.python-version }}"
-          cache: 'poetry'
       - name: "Install dependencies"
         run: |
           poetry install
