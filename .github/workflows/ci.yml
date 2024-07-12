@@ -11,7 +11,7 @@ on:
 jobs:
   linting:
     name: "Perform linting checks"
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
@@ -25,6 +25,7 @@ jobs:
         id: setup-python
         with:
           python-version: "${{ matrix.python-version }}"
+          cache: 'poetry'
       - name: "Install dependencies"
         run: |
           poetry install
