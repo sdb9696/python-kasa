@@ -29,7 +29,8 @@ jobs:
       - name: "Install dependencies"
         run: |
           poetry install
-<<<<<<< Updated upstream
+      - name: Check Poetry Python version
+        run: poetry env info               
       - name: Read pre-commit version
         id: pre-commit-version
         run: >-
@@ -37,11 +38,7 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pre-commit/
-          key: ${{ runner.os }}-pre-commit-${{ steps.pre-commit-version.outputs.PRE_COMMIT_VERSION }}-python-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
-=======
-      - name: Check Poetry Python version
-        run: poetry env info          
->>>>>>> Stashed changes
+          key: ${{ runner.os }}-pre-commit-${{ steps.pre-commit-version.outputs.PRE_COMMIT_VERSION }}-python-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}     
       - name: "Check supported device md files are up to date"
         run: |
           poetry run pre-commit run generate-supported --all-files
