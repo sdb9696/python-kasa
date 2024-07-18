@@ -19,6 +19,7 @@ import logging
 import socket
 import struct
 from collections.abc import Generator
+from pprint import pformat as pf
 
 # When support for cpython older than 3.11 is dropped
 # async_timeout can be replaced with asyncio.timeout
@@ -77,8 +78,9 @@ class XorTransport(BaseTransport):
         """Execute a query on the device and wait for the response."""
         assert self.writer is not None  # noqa: S101
         assert self.reader is not None  # noqa: S101
-        _LOGGER.debug("Device %s sending query %s", self._host, request)
-
+        debug_log = _LOGGER.isEnabledFor(logging.DEBUG)
+        if debug_log:
+            _LOGGER.debug("%s >> %s", self._host, request)
         self.writer.write(XorEncryption.encrypt(request))
         await self.writer.drain()
 
@@ -88,8 +90,8 @@ class XorTransport(BaseTransport):
         buffer = await self.reader.readexactly(length)
         response = XorEncryption.decrypt(buffer)
         json_payload = json_loads(response)
-
-        _LOGGER.debug("Device %s query response received", self._host)
+        if debug_log:
+            _LOGGER.debug("%s << %s", self._host, pf(json_payload))
 
         return json_payload
 
